@@ -157,7 +157,7 @@
                 messageDiv.style.display = 'block';
                 setTimeout(() => {
                     messageDiv.style.display = 'none';
-                }, 5000);
+                }, 8000);
             }
             
             function updateStatus(running) {
@@ -188,10 +188,12 @@
                     });
             }
             
-            // Check status every 5 seconds
-            setInterval(fetchStatus, 5000);
+            setInterval(fetchStatus, 3000);
             
             startBtn.addEventListener('click', function() {
+                startBtn.disabled = true;
+                startBtn.textContent = 'Starting...';
+                
                 const formData = new FormData();
                 formData.append('keywords', keywordsInput.value);
                 
@@ -206,15 +208,22 @@
                         showMessage(data.message, 'success');
                     } else {
                         showMessage(data.message, 'error');
+                        startBtn.disabled = false;
                     }
+                    startBtn.textContent = 'Start Blocker';
                 })
                 .catch(error => {
-                    showMessage('Error starting blocker', 'error');
+                    showMessage('Error starting blocker. Please try again.', 'error');
                     console.error('Error:', error);
+                    startBtn.disabled = false;
+                    startBtn.textContent = 'Start Blocker';
                 });
             });
             
             stopBtn.addEventListener('click', function() {
+                stopBtn.disabled = true;
+                stopBtn.textContent = 'Stopping...';
+                
                 fetch('/api/stop', {
                     method: 'POST'
                 })
@@ -226,10 +235,14 @@
                     } else {
                         showMessage(data.message, 'error');
                     }
+                    stopBtn.textContent = 'Stop Blocker';
+                    setTimeout(fetchStatus, 1000);
                 })
                 .catch(error => {
-                    showMessage('Error stopping blocker', 'error');
+                    showMessage('Error stopping blocker. Please try again.', 'error');
                     console.error('Error:', error);
+                    stopBtn.disabled = false;
+                    stopBtn.textContent = 'Stop Blocker';
                 });
             });
             

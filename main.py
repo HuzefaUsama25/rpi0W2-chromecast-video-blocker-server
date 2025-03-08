@@ -140,13 +140,23 @@ def monitor_and_control_chromecast(chromecast):
     except (ImportError, AttributeError):
         def get_keywords_func(): return DEFAULT_MINECRAFT_KEYWORDS
 
+    # Set monitoring_active to True when starting
+    monitoring_active = True
+
     while monitoring_active:
         try:
             current_time = time.time()
 
-            # Check if we should still be running
+            # Check if we should still be running - additional check
             if not monitoring_active:
-                print("Monitoring has been stopped")
+                print("Monitoring has been stopped by external request")
+                # Make sure we unmute before exiting
+                try:
+                    if currently_muted:
+                        chromecast.set_volume_muted(False)
+                        print("Unmuted Chromecast before stopping")
+                except Exception as e:
+                    print(f"Error unmuting before exit: {e}")
                 break
 
             # Get current keywords
@@ -310,8 +320,21 @@ def monitor_and_control_chromecast(chromecast):
             reconnect_chromecast(chromecast)
             last_reconnect_time = time.time()
 
+            # Also check if we should exit
+            if not monitoring_active:
+                print("Monitoring stopping after error recovery")
+                break
+
+        # Check again before sleeping
+        if not monitoring_active:
+            print("Monitoring stopping before sleep")
+            break
+
         # Wait before checking again
         time.sleep(2)
+
+    print("Monitoring function exiting")
+    return
 
 
 def main():

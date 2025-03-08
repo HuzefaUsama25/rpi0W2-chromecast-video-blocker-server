@@ -28,48 +28,59 @@ A web-enabled application to monitor and block content on Chromecast devices.
     cd chromecast-blocker
     ```
 
-2. Run the installation script as root:
+2. Make the installation script executable and run it as root:
 
     ```
+    chmod +x install.sh
     sudo ./install.sh
     ```
 
 3. Access the web interface at: `http://pi.local/`
 
+The installer will:
+- Create a Python virtual environment in `/home/pi/chromecast/venv`
+- Install all dependencies in the virtual environment
+- Set up a systemd service to run the application at startup
+- Launch the web interface
+
 ### Manual Installation
 
-1. Install required packages:
+1. Create a virtual environment and install required packages:
 
     ```
-    pip3 install pychromecast flask
-    ```
-
-2. Copy the files to your desired location:
-
-    ```
-    mkdir -p ~/chromecast/templates
-    mkdir -p ~/chromecast/static
-    cp main.py web_server.py ~/chromecast/
-    cp templates/index.html ~/chromecast/templates/
-    ```
-
-3. Make the scripts executable:
-
-    ```
-    chmod +x ~/chromecast/main.py
-    chmod +x ~/chromecast/web_server.py
-    ```
-
-4. To run manually:
-
-    ```
+    mkdir -p ~/chromecast/templates ~/chromecast/static
     cd ~/chromecast
-    python3 main.py --web
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install pychromecast flask
     ```
 
-5. To set up as a service:
+2. Copy the files to your installation directory:
+
     ```
-    sudo cp chromecast-blocker.service /etc/systemd/system/
+    cp /path/to/source/main.py web_server.py ~/chromecast/
+    cp /path/to/source/templates/index.html ~/chromecast/templates/
+    ```
+
+3. Create a launcher script:
+
+    ```
+    cat > ~/chromecast/launcher.sh << 'EOF'
+    #!/bin/bash
+    cd /home/pi/chromecast
+    source venv/bin/activate
+    python3 main.py --web --port=80
+    EOF
+    
+    chmod +x ~/chromecast/launcher.sh
+    ```
+
+4. Create and install the systemd service:
+
+    ```
+    sudo nano /etc/systemd/system/chromecast-blocker.service
+    # Paste the contents of chromecast-blocker.service
+    
     sudo systemctl daemon-reload
     sudo systemctl enable chromecast-blocker.service
     sudo systemctl start chromecast-blocker.service
@@ -95,8 +106,16 @@ A web-enabled application to monitor and block content on Chromecast devices.
 ### Service won't start
 
 -   Check service logs: `sudo journalctl -u chromecast-blocker.service`
--   Ensure Python dependencies are installed: `pip3 install pychromecast flask`
--   Make sure port 80 is available (not used by another service)
+-   Verify the virtual environment is correctly set up: `ls -l /home/pi/chromecast/venv/bin/python`
+-   Check if the launcher script is executable: `ls -l /home/pi/chromecast/launcher.sh`
+-   Try running the launcher script manually to see any errors: `sudo /home/pi/chromecast/launcher.sh`
+-   If port 80 fails (requires root), try modifying the port in launcher.sh to 8080
+
+### Can't install dependencies
+
+-   Modern Raspberry Pi OS versions use externally managed Python environments
+-   Always use a virtual environment as shown in the installation instructions
+-   If pip still fails, ensure you have python3-venv installed: `sudo apt install python3-venv`
 
 ## License
 

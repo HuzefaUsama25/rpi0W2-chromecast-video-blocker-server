@@ -3,7 +3,7 @@ Description=Chromecast Content Blocker with Web Interface
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/chromecast/main.py --web --port=80
+ExecStart=/home/pi/chromecast/launcher.sh
 WorkingDirectory=/home/pi/chromecast
 StandardOutput=inherit
 StandardError=inherit

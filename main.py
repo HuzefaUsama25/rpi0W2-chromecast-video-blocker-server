@@ -341,41 +341,73 @@ def main():
     parser = argparse.ArgumentParser(description='Chromecast Content Blocker')
     parser.add_argument('--web', action='store_true',
                         help='Run with web interface')
-    parser.add_argument('--port', type=int, default=80,
+    parser.add_argument('--port', type=int, default=8080,
                         help='Port for web interface')
     args = parser.parse_args()
 
     try:
-        # Find a Chromecast
-        chromecast, browser = find_chromecast()
-
         if args.web:
             # Import the web server and set up the blocker function
             try:
                 import web_server
+                import threading
+                import time
+                import socket
+
+                print(f"Finding Chromecast...")
+                # First find the Chromecast
+                chromecast, browser = find_chromecast()
+
+                # Set up the web server
                 web_server.set_blocker_function(monitor_and_control_chromecast)
                 web_server.set_chromecast_and_browser(chromecast, browser)
 
+                # Get the host IP for display purposes
+                hostname = socket.gethostname()
+                try:
+                    host_ip = socket.gethostbyname(hostname)
+                except:
+                    host_ip = "pi.local or IP address"
+
+                # Define a function that will be run in a thread to start the web server
+                def run_web_server():
+                    print(f"Starting web interface on port {args.port}...")
+                    web_server.run_server(port=args.port)
+
                 # Start the web server in a separate thread
-                web_thread = threading.Thread(
-                    target=web_server.run_server,
-                    kwargs={'port': args.port}
-                )
+                web_thread = threading.Thread(target=run_web_server)
                 web_thread.daemon = True
                 web_thread.start()
 
-                print(
-                    f"Web interface started at http://0.0.0.0:{args.port} (accessible via pi.local:{args.port})")
+                # Give the web server a moment to start
+                print("Waiting for web server to initialize...")
+                time.sleep(3)  # Wait 3 seconds for Flask to start
 
-                # Wait for the web thread
+                print(f"Web interface should now be accessible at:")
+                print(f"  http://{host_ip}:{args.port}")
+                print(f"  http://pi.local:{args.port}")
+                print(f"  http://localhost:{args.port}")
+
+                # Continue with normal operation - the web server is running in the background
+                # and the blocker will be activated when requested through the web interface
                 while True:
                     time.sleep(1)
 
-            except ImportError:
-                print("Web server module not found, falling back to CLI mode")
+            except ImportError as e:
+                print(
+                    f"Web server module not found: {e}, falling back to CLI mode")
+                chromecast, browser = find_chromecast()
                 monitor_and_control_chromecast(chromecast)
+
+            except Exception as e:
+                print(f"Error starting web interface: {e}")
+                print("Falling back to CLI mode")
+                chromecast, browser = find_chromecast()
+                monitor_and_control_chromecast(chromecast)
+
         else:
             # CLI mode - Monitor and control Chromecast indefinitely
+            chromecast, browser = find_chromecast()
             monitor_and_control_chromecast(chromecast)
 
     except KeyboardInterrupt:

@@ -7,4 +7,4 @@ cd /home/pi/chromecast
 source venv/bin/activate
 
 # Start the application
-python3 main.py --web --port=80 
+python3 main.py --web --port=8080 

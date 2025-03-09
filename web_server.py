@@ -284,15 +284,27 @@ def get_keywords():
     return keywords
 
 
-def run_server(host='0.0.0.0', port=80):
+def run_server(host='0.0.0.0', port=8080):
     try:
+        logger.info(f"Starting Flask web server on {host}:{port}")
+        print(f"* Starting web server on {host}:{port}")
+        print(f"* Web interface will be accessible at: http://{host}:{port}")
         app.run(host=host, port=port, threaded=True)
     except Exception as e:
-        logger.error(f"Error running server: {e}")
-        # If port 80 requires root privileges and fails, try a higher port
-        if port == 80:
-            logger.info("Attempting to run on port 8080 instead...")
-            try:
-                app.run(host=host, port=8080, threaded=True)
-            except Exception as e2:
-                logger.error(f"Error running server on fallback port: {e2}")
+        logger.error(f"Error running server on port {port}: {e}")
+        print(f"Error running server on port {port}: {e}")
+
+        # If the original port fails, try a different port
+        fallback_port = 8088 if port != 8088 else 8000
+        logger.info(f"Attempting to run on fallback port {fallback_port}...")
+        print(f"Attempting to run on fallback port {fallback_port}...")
+
+        try:
+            app.run(host=host, port=fallback_port, threaded=True)
+        except Exception as e2:
+            logger.error(
+                f"Error running server on fallback port {fallback_port}: {e2}")
+            print(
+                f"Error running server on fallback port {fallback_port}: {e2}")
+            print(
+                "Web server could not be started. Check permissions and port availability.")

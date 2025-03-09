@@ -5,8 +5,9 @@ After=network.target
 [Service]
 ExecStart=/home/pi/chromecast/launcher.sh
 WorkingDirectory=/home/pi/chromecast
-StandardOutput=inherit
-StandardError=inherit
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
 Restart=always
 User=root
 

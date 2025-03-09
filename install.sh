@@ -45,7 +45,7 @@ cat > $INSTALL_DIR/launcher.sh << 'EOF'
 #!/bin/bash
 cd /home/pi/chromecast
 source venv/bin/activate
-python3 main.py --web --port=80
+python3 main.py --web --port=8080
 EOF
 
 chmod +x $INSTALL_DIR/launcher.sh

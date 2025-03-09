@@ -60,15 +60,17 @@
         .button-group {
             margin-top: 20px;
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
         }
         button {
-            padding: 10px 15px;
+            padding: 12px 20px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
             transition: background-color 0.3s;
+            min-width: 120px;
         }
         button:disabled {
             opacity: 0.5;
@@ -116,6 +118,24 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .server-info {
+            font-size: 0.8em;
+            color: #6c757d;
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        .server-info p {
+            margin: 5px 0;
+        }
+        @media (max-width: 480px) {
+            .button-group {
+                flex-direction: column;
+            }
+            button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -139,6 +159,12 @@
             <button id="stopBtn" {{ 'disabled' if not blocker_running else '' }}>Stop Blocker</button>
             <button id="updateBtn">Update Keywords</button>
         </div>
+        
+        <div class="server-info">
+            <p>Server: <span id="serverHostname">{{ hostname if hostname else 'Unknown' }}</span></p>
+            <p>Chromecast: <span id="chromecastName">Loading...</span></p>
+            <p id="lastUpdated">Last updated: Just now</p>
+        </div>
     </div>
 
     <script>
@@ -150,6 +176,9 @@
             const statusText = document.getElementById('statusText');
             const statusDisplay = document.getElementById('statusDisplay');
             const messageDiv = document.getElementById('message');
+            const serverHostname = document.getElementById('serverHostname');
+            const chromecastName = document.getElementById('chromecastName');
+            const lastUpdated = document.getElementById('lastUpdated');
             
             function showMessage(message, type) {
                 messageDiv.textContent = message;
@@ -174,6 +203,26 @@
                 }
             }
             
+            function updateLastUpdated() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                lastUpdated.textContent = `Last updated: ${timeString}`;
+            }
+            
+            function fetchSystemInfo() {
+                fetch('/api/info')
+                    .then(response => response.json())
+                    .then(data => {
+                        serverHostname.textContent = data.hostname || 'Unknown';
+                        chromecastName.textContent = data.chromecast || 'Not connected';
+                        updateLastUpdated();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching system info:', error);
+                        chromecastName.textContent = 'Error loading';
+                    });
+            }
+            
             function fetchStatus() {
                 fetch('/api/status')
                     .then(response => response.json())
@@ -182,13 +231,24 @@
                         if (data.keywords.length > 0 && keywordsInput.value === '') {
                             keywordsInput.value = data.keywords.join(', ');
                         }
+                        if (data.hostname) {
+                            serverHostname.textContent = data.hostname;
+                        }
+                        updateLastUpdated();
                     })
                     .catch(error => {
                         console.error('Error fetching status:', error);
                     });
             }
             
+            // Fetch system info once at start
+            fetchSystemInfo();
+            
+            // Check status every 3 seconds
             setInterval(fetchStatus, 3000);
+            
+            // Refresh system info every minute
+            setInterval(fetchSystemInfo, 60000);
             
             startBtn.addEventListener('click', function() {
                 startBtn.disabled = true;
@@ -211,6 +271,7 @@
                         startBtn.disabled = false;
                     }
                     startBtn.textContent = 'Start Blocker';
+                    setTimeout(fetchSystemInfo, 1000);
                 })
                 .catch(error => {
                     showMessage('Error starting blocker. Please try again.', 'error');
@@ -237,6 +298,7 @@
                     }
                     stopBtn.textContent = 'Stop Blocker';
                     setTimeout(fetchStatus, 1000);
+                    setTimeout(fetchSystemInfo, 1500);
                 })
                 .catch(error => {
                     showMessage('Error stopping blocker. Please try again.', 'error');
@@ -247,6 +309,10 @@
             });
             
             updateBtn.addEventListener('click', function() {
+                const oldValue = keywordsInput.value;
+                updateBtn.textContent = 'Updating...';
+                updateBtn.disabled = true;
+                
                 const formData = new FormData();
                 formData.append('keywords', keywordsInput.value);
                 
@@ -260,11 +326,17 @@
                         showMessage(data.message, 'success');
                     } else {
                         showMessage(data.message, 'error');
+                        keywordsInput.value = oldValue;
                     }
+                    updateBtn.textContent = 'Update Keywords';
+                    updateBtn.disabled = false;
                 })
                 .catch(error => {
-                    showMessage('Error updating keywords', 'error');
+                    showMessage('Error updating keywords. Please try again.', 'error');
                     console.error('Error:', error);
+                    keywordsInput.value = oldValue;
+                    updateBtn.textContent = 'Update Keywords';
+                    updateBtn.disabled = false;
                 });
             });
         });

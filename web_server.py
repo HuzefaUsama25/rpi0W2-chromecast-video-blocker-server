@@ -4,6 +4,8 @@ import threading
 import time
 import json
 import os
+import socket
+import sys
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import logging
 
@@ -61,12 +63,14 @@ browser_instance = None
 def set_blocker_function(func):
     global blocker_function
     blocker_function = func
+    logger.info("Blocker function set")
 
 
 def set_chromecast_and_browser(chromecast, browser):
     global chromecast_instance, browser_instance
     chromecast_instance = chromecast
     browser_instance = browser
+    logger.info(f"Chromecast set: {chromecast.name if chromecast else 'None'}")
 
 
 def blocker_thread_function():
@@ -127,9 +131,17 @@ def get_status():
             blocker_running = False
             logger.info("Thread is no longer alive, updated status to stopped")
 
+    # Include hostname in response
+    hostname = "Unknown"
+    try:
+        hostname = socket.gethostname()
+    except:
+        pass
+
     return jsonify({
         'running': blocker_running,
-        'keywords': keywords
+        'keywords': keywords,
+        'hostname': hostname
     })
 
 
@@ -155,6 +167,11 @@ def start_blocker():
             logger.info(
                 "Found dead thread, cleaning up before creating new one")
             blocker_thread = None
+
+    # Check if we have a Chromecast to work with
+    if chromecast_instance is None:
+        logger.error("No Chromecast instance available")
+        return jsonify({'status': 'error', 'message': 'No Chromecast found. Please restart the service.'})
 
     # Update keywords if provided
     if 'keywords' in request.form:
@@ -275,9 +292,35 @@ def update_keywords():
                         for k in request.form['keywords'].split(',') if k.strip()]
         keywords = new_keywords
         save_config()
+        logger.info(f"Keywords updated: {keywords}")
         return jsonify({'status': 'success', 'message': 'Keywords updated', 'keywords': keywords})
 
     return jsonify({'status': 'error', 'message': 'No keywords provided'})
+
+
+@app.route('/api/info', methods=['GET'])
+def get_system_info():
+    """Return system information"""
+    info = {
+        'hostname': 'Unknown',
+        'ip_address': 'Unknown',
+        'chromecast': 'Not connected',
+        'server_time': time.strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+    try:
+        info['hostname'] = socket.gethostname()
+        info['ip_address'] = socket.gethostbyname(info['hostname'])
+    except Exception as e:
+        logger.error(f"Error getting network info: {e}")
+
+    if chromecast_instance:
+        try:
+            info['chromecast'] = chromecast_instance.name
+        except:
+            info['chromecast'] = 'Connected but name unavailable'
+
+    return jsonify(info)
 
 
 def get_keywords():
@@ -289,6 +332,17 @@ def run_server(host='0.0.0.0', port=8080):
         logger.info(f"Starting Flask web server on {host}:{port}")
         print(f"* Starting web server on {host}:{port}")
         print(f"* Web interface will be accessible at: http://{host}:{port}")
+
+        # Get the local IP address for better user instructions
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            print(f"* Also try: http://{local_ip}:{port}")
+            s.close()
+        except Exception as e:
+            logger.error(f"Could not determine local IP: {e}")
+
         app.run(host=host, port=port, threaded=True)
     except Exception as e:
         logger.error(f"Error running server on port {port}: {e}")
